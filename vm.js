@@ -7,18 +7,13 @@
   - Safer stack/state logging and improved error context
 */
 import Memory2D from './memory.js';
-function makeRegisters(count) {
-const regs = {};
-for (let i = 1; i <= count; i++) regs['r' + i] = 0;
-return regs;
-}
 export function makeVM(hostAPI = {}) {
 // Host shims
 if (!hostAPI.print) hostAPI.print = (...a) => console.log(...a);
 if (!hostAPI.exit)
-hostAPI.exit = (code = 1, msg = 'VM exit') => {
-const e = Object.assign(new Error(msg), { code });
-throw e;
+	hostAPI.exit = (code = 1, msg = 'VM exit') => {
+		const e = Object.assign(new Error(msg), { code });
+	throw e;
 };
 if (!hostAPI.req) hostAPI.req = (name) => hostAPI[name];
 if (!hostAPI.serialize)
@@ -36,23 +31,21 @@ if (typeof v === 'function') return 0;
 return 0;
 };
 // Unified debug
-if (typeof hostAPI.debug === 'undefined') hostAPI.debug = true;
-if (!hostAPI.debugLog) {
-hostAPI.debugLog = function (msg, level = 'info') {
-if (!hostAPI.debug) return;
+
+hostAPI.debugLog = function (...msg) {
+//if (!hostAPI.debug) return;
+let level = msg.length > 1 ? msg.splice(msg.length-1)[0] : "ERR";
+msg = msg.join("|");
 const ts = new Date().toISOString();
 console.log(`[${level.toUpperCase()} ${ts}] ${msg}`);
-};
 }
-// Registers and memory
-if (typeof hostAPI.REGISTER_COUNT === 'undefined') hostAPI.REGISTER_COUNT = 8;
-globalThis.vm = globalThis.vm || {};
-globalThis.vm.registers = makeRegisters(hostAPI.REGISTER_COUNT);
-hostAPI.debugLog('Registers initialized on global vm');
+
+//hostAPI.debugLog('Registers initialized on global vm');
 // Optional Memory2D
 const memory =
 hostAPI.memory ||
 (typeof Memory2D !== 'undefined' ? new Memory2D(hostAPI) : null);
+hostAPI.debugLog("initialized", "Memory");
 const strings = hostAPI.__strings || [];
 const makeEnv = (parent = null) => ({
 parent,
@@ -295,6 +288,7 @@ st.env = makeEnv(fn.env);
 for (let i = 0; i < nparams; i++) store(st, `arg${i}`, args[i]);
 st.IP = codeOfs;
 while (!st.halt) {
+	hostAPI.debugLog(`CALL/STEP INTRO op=0x${op.toString(16)} IP=${st.IP}`, 'trace');
 const op = fetchByte();
 const handler = D[op];
 if (!handler) throw new Error(`Invalid opcode: ${op}`);
@@ -461,15 +455,18 @@ const val = Bytes.u8(bytecode, state.IP++);
 return (val ^ (r & 0xff)) & 0xff;
 };
 async function interpret(bc, metaWS) {
-hostAPI.debugLog('INTERPRETER STARTED');
+	//vm = require('./vm.js'); let c = require('./compiler.js');  let prog = c.compileHL("print('nigger.')"); let tvm = vm.makeVM(); tvm.interpret( prog);
+hostAPI.debugLog('INTERPRETER STARTED', 'hostAPI');
 bytecode = bc;
 for (let i = 0; i < 256; i++) metas[i] = metaWS ? metaWS[i] || 0 : 0;
-state.IP = 8;
+state.IP = 0;
 rand = _PRNG(state.seed);
+hostAPI.debugLog(state.halt + state.IP < bytecode.length, " STATE ");
 while (!state.halt && state.IP < bytecode.length) {
-hostAPI.debugLog(state);
 const ipBefore = state.IP;
+hostAPI.debugLog('ipBefore',ipBefore);
 const op = fetchByte();
+hostAPI.debugLog("op",op);
 const fn = D[op];
 if (!fn) {
 const err = `Invalid opcode: 0x${op.toString(16)} at IP=${ipBefore}`;
